@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
+use App\Models\Language;
 
 class DatabaseSeeder extends Seeder
 {
@@ -13,6 +14,14 @@ class DatabaseSeeder extends Seeder
      */
     public function run()
     {
-        // \App\Models\User::factory(10)->create();
+        if(is_null(Language::first())) {
+            $this->call([
+                LanguageSeeder::class
+            ]);
+        }
+        \App\Models\Ingredient::factory(10)->create();
+        \App\Models\Tag::factory(10)->create();
+        \App\Models\Category::factory(10)->create();
+        \App\Models\Meal::factory(10)->create();
     }
 }
