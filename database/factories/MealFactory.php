@@ -34,8 +34,8 @@ class MealFactory extends Factory
             foreach ($languages as $language) {
                 $meal->translations()->create([
                     'locale' => $language->code,
-                    'title' => $this->faker->sentence(),
-                    'description' => $this->faker->sentence(),
+                    'title' => $this->faker->realText($maxNbChars = 20),
+                    'description' => $this->faker->realText($maxNbChars = 20),
                 ]);
             }
 
