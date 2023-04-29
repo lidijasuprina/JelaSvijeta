@@ -4,45 +4,119 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Meal;
+use App\Models\Language;
 
 class MealController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Meal::query();
         
-        $perPage = isset($request->per_page) ? $request->per_page : null;
-        $page = isset($request->page) ? $request->page : null;
-
-        
-        // Pagination
-        if (!is_null($page) && !is_null($perPage)) {
-            // && $totalPages > $page
-            $query->paginate($perPage, ['*'], 'page', $page);
+        // Validate lang param
+        if (!$request->has('lang')) {
+            return response()->json(['error' => "'lang' parameter is required"], 400);
+        } else if (!Language::where('code', $request->lang)->exists()) {
+            return response()->json(['error' => "'$request->lang' is not a language for this app"], 400);
         }
-        
+
+        $query = Meal::query();
+        $lang = $request->lang;
+        $with = $request->with;
+        $keyword = explode(',', $with);
+        $meta = [];
+        $links = [];
+        $data = [];
+
         // Filter by category
         if (isset($request->category)) {
             $category = $request->category;
-            if ($category == 'null') {
+            if (strtolower($category) == 'null') {
                 $query->whereNull('category_id');
-            } else if ($category == '!null') {
+            } else if (strtolower($category) == '!null') {
                 $query->whereNotNull('category_id');
             } else {
-                $query->where('category_id', $category);
+                $query->whereHas('categories', function($q) use ($category) {
+                    $q->where('id', $category);
+                });
             }
         }
 
-        // Get the meals and return them as a JSON response
+        // Filter by tags
+        if (isset($request->tags)) {
+            $tags = $request->tags;
+            $tags = explode(',', $tags);
+            foreach ($tags as $tag) {
+                $query->whereHas('tags', function ($q) use ($tag) {
+                    $q->where('tag_id', $tag);
+                });
+            }
+        }
+
+        $perPage = isset($request->per_page) ? $request->per_page : null;
+        $page = isset($request->page) ? $request->page : null;
+
+        // Pagination
+        if (!is_null($page) && !is_null($perPage)) {
+            // && $totalPages > $page
+            $query->paginate(intval($perPage), ['*'], 'page', intval($page));
+        }
+
+
         $meals = $query->get();
-        $total = $query->get()->count();
+
+        // Format meals data
+        $meals = $meals->map(function ($meal) use ($lang, $keyword) {
+            $mealData = [
+                'id' => $meal->id,
+                'title' => $meal->{"title:$lang"},
+                'description' => $meal->{"description:$lang"},
+                'status' => $meal->status
+            ];
+
+            // Show additional data - category
+            if (in_array('category', $keyword)) {
+                $mealData['category'] = $meal->categories ? [
+                    'id' => $meal->categories->id,
+                    'title' => $meal->categories->{"title:$lang"},
+                    'slug' => $meal->categories->slug,
+                ] : null;
+            }
+
+            // Show additional data - tags
+            if (in_array('tags', $keyword)) {
+                $mealData['tags'] = $meal->tags->map(function($tag) use ($lang) {
+                    return [
+                        'id' => $tag->id,
+                        'title' => $tag->{"title:$lang"},
+                        'slug' => $tag->slug
+                    ];
+                });
+            }
+
+            // Show additional data - ingredients
+            if (in_array('ingredients', $keyword)) {
+                $mealData['ingredients'] = $meal->ingredients->map(function($ingredient) use ($lang) {
+                    return [
+                        'id' => $ingredient->id,
+                        'title' => $ingredient->{"title:$lang"},
+                        'slug' => $ingredient->slug
+                    ];
+                });
+            }
+
+            return $mealData;
+        });
+
+        
+
+        // Get the meals and return them as a JSON response
+        $total = $meals->count();
         $totalPages = isset($request->per_page) ? ceil($total / $perPage) : null;
 
         $meta = [
-            'currentPage' => $page,
+            'currentPage' => $page ?? 1,
             'totalItems' => $total,
-            'itemsPerPage' => $perPage,
-            'totalPages' => $totalPages,
+            'itemsPerPage' => $perPage ?? $total,
+            'totalPages' => $totalPages ?? 1,
         ];
     
         $links = [

@@ -17,6 +17,6 @@ class Category extends Model implements TranslatableContract
 
     public function meals()
     {
-        return $this->belongsTo('App\Models\Meal');
+        return $this->hasMany(Meal::class);
     }
 }
