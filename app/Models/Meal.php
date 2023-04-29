@@ -6,13 +6,24 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Astrotomic\Translatable\Contracts\Translatable as TranslatableContract;
 use Astrotomic\Translatable\Translatable;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Meal extends Model implements TranslatableContract
 {
-    use HasFactory, Translatable;
+    use HasFactory, Translatable, SoftDeletes;
 
     public $translatedAttributes = ['title', 'description'];
     protected $fillable = ['status'];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::deleting(function ($meal) {
+            $meal->status = 'deleted';
+            $meal->save();
+        });
+    }
 
     public function categories()
     {

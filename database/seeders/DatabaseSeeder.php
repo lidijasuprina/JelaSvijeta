@@ -4,6 +4,10 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use App\Models\Language;
+use App\Models\Ingredient;
+use App\Models\Tag;
+use App\Models\Category;
+use App\Models\Meal;
 
 class DatabaseSeeder extends Seeder
 {
@@ -19,9 +23,10 @@ class DatabaseSeeder extends Seeder
                 LanguageSeeder::class
             ]);
         }
-        \App\Models\Ingredient::factory(10)->create();
-        \App\Models\Tag::factory(10)->create();
-        \App\Models\Category::factory(10)->create();
-        \App\Models\Meal::factory(10)->create();
+        Ingredient::factory(10)->create();
+        Tag::factory(10)->create();
+        Category::factory(10)->create();
+        Meal::factory(10)->create();
+        Meal::first()->delete();
     }
 }

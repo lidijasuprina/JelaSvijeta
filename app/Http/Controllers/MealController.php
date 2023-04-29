@@ -5,26 +5,39 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Meal;
 use App\Models\Language;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class MealController extends Controller
 {
     public function index(Request $request)
     {
         
-        // Validate lang param
+        // Validate lang - required
         if (!$request->has('lang')) {
             return response()->json(['error' => "'lang' parameter is required"], 400);
         } else if (!Language::where('code', $request->lang)->exists()) {
             return response()->json(['error' => "'$request->lang' is not a language for this app"], 400);
         }
 
-        $query = Meal::query();
         $lang = $request->lang;
         $with = $request->with;
         $keyword = explode(',', $with);
         $meta = [];
         $links = [];
         $data = [];
+
+        // Add diff_time filter
+        if ($request->has('diff_time')) {
+            $query = Meal::withTrashed();
+            $diffTime = $request->diff_time;
+            $query->where(function($q) use ($diffTime) {
+                $q->where('created_at', '>', date('Y-m-d H:i:s', $diffTime))
+                ->orWhere('updated_at', '>', date('Y-m-d H:i:s', $diffTime))
+                ->orWhere('deleted_at', '>', date('Y-m-d H:i:s', $diffTime));
+            });
+        } else {
+            $query = Meal::query();
+        }
 
         // Filter by category
         if (isset($request->category)) {
@@ -50,16 +63,6 @@ class MealController extends Controller
                 });
             }
         }
-
-        $perPage = isset($request->per_page) ? $request->per_page : null;
-        $page = isset($request->page) ? $request->page : null;
-
-        // Pagination
-        if (!is_null($page) && !is_null($perPage)) {
-            // && $totalPages > $page
-            $query->paginate(intval($perPage), ['*'], 'page', intval($page));
-        }
-
 
         $meals = $query->get();
 
@@ -106,9 +109,15 @@ class MealController extends Controller
             return $mealData;
         });
 
-        
-
         // Get the meals and return them as a JSON response
+        $perPage = isset($request->per_page) ? $request->per_page : null;
+        $page = isset($request->page) ? $request->page : null;
+
+        // Pagination
+        if (!is_null($page) && !is_null($perPage)) {
+            // && $totalPages > $page
+            $query->paginate(intval($perPage), ['*'], 'page', intval($page));
+        }
         $total = $meals->count();
         $totalPages = isset($request->per_page) ? ceil($total / $perPage) : null;
 
