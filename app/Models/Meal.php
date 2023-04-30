@@ -39,4 +39,37 @@ class Meal extends Model implements TranslatableContract
     {
         return $this->belongsToMany(Tag::class, 'meals_tags', 'meal_id', 'tag_id');
     }
+
+    public function scopeFilterByCategory($query, $category)
+    {
+        if (strtolower($category) == 'null') {
+            $query->whereNull('category_id');
+        } else if (strtolower($category) == '!null') {
+            $query->whereNotNull('category_id');
+        } else {
+            $query->where('category_id', $category);
+        }
+        return $query;
+    }
+
+    public function scopeFilterByTags($query, $tags)
+    {
+        foreach ($tags as $tag) {
+            $query->whereHas('tags', function ($q) use ($tag) {
+                $q->where('tag_id', $tag);
+            });
+        }
+        return $query;
+    }
+
+    public function scopefilterByDiffTime($query, $diffTime)
+    {
+        $query->where(function($q) use ($diffTime) {
+            $q->where('created_at', '>', date('Y-m-d H:i:s', $diffTime))
+            ->orWhere('updated_at', '>', date('Y-m-d H:i:s', $diffTime))
+            ->orWhere('deleted_at', '>', date('Y-m-d H:i:s', $diffTime));
+        });
+    }
+
+            
 }

@@ -11,63 +11,86 @@ class MealController extends Controller
 {
     public function index(Request $request)
     {
-        
         // Validate lang - required
         if (!$request->has('lang')) {
             return response()->json(['error' => "'lang' parameter is required"], 400);
         } else if (!Language::where('code', $request->lang)->exists()) {
             return response()->json(['error' => "'$request->lang' is not a language for this app"], 400);
         }
+        
+        // Validate per_page - optional
+        if ($request->has('per_page') && !is_numeric($request->per_page)) {
+            return response()->json(['error' => "'per_page' parameter must be a number"], 400);
+        }
 
-        $lang = $request->lang;
-        $with = $request->with;
-        $keyword = explode(',', $with);
-        $meta = [];
-        $links = [];
-        $data = [];
+        // Validate page - optional
+        if ($request->has('page') && !is_numeric($request->page)) {
+            return response()->json(['error' => "'page' parameter must be a number"], 400);
+        }
 
-        // Add diff_time filter
+        // Validate category - optional
+        if ($request->has('category') && !in_array(strtolower($request->category), ['null', '!null']) && !is_numeric($request->category)) {
+            return response()->json(['error' => "'category' parameter must be a number, 'null', or '!null'"], 400);
+        }
+
+        // Validate tags - optional
+        if ($request->has('tags')) {
+            $tags = explode(',', $request->tags);
+            foreach ($tags as $tag) {
+                if (!is_numeric($tag)) {
+                    return response()->json(['error' => "'tags' parameter must be a comma-separated list of numbers"], 400);
+                }
+            }
+        }
+
+        // Validate with - optional
+        if ($request->has('with')) {
+            $keywords = ['category', 'tags', 'ingredients'];
+            $with = explode(',', $request->with);
+            foreach ($with as $keyword) {
+                if (!in_array($keyword, $keywords)) {
+                    return response()->json(['error' => "'with' parameter must be a comma-separated list of 'category', 'tags', or 'ingredients'"], 400);
+                }
+            }
+        }
+
+        // Validate diff_time - optional
         if ($request->has('diff_time')) {
+            if (!is_numeric($request->diff_time) || $request->diff_time <= 0) {
+                return response()->json(['error' => "'diff_time' parameter must be a positive number"], 400);
+            }
             $query = Meal::withTrashed();
-            $diffTime = $request->diff_time;
-            $query->where(function($q) use ($diffTime) {
-                $q->where('created_at', '>', date('Y-m-d H:i:s', $diffTime))
-                ->orWhere('updated_at', '>', date('Y-m-d H:i:s', $diffTime))
-                ->orWhere('deleted_at', '>', date('Y-m-d H:i:s', $diffTime));
-            });
         } else {
             $query = Meal::query();
         }
 
-        // Filter by category
-        if (isset($request->category)) {
-            $category = $request->category;
-            if (strtolower($category) == 'null') {
-                $query->whereNull('category_id');
-            } else if (strtolower($category) == '!null') {
-                $query->whereNotNull('category_id');
-            } else {
-                $query->whereHas('categories', function($q) use ($category) {
-                    $q->where('id', $category);
-                });
-            }
-        }
+        // Filter by diff_time, category, tags
+        $query
+            ->when($request->has('diff_time'), function($query) use ($request) {
+                $query->filterByDiffTime($request->diff_time);
+            })
+            ->when($request->has('category'), function($query) use ($request) {
+                $query->filterByCategory($request->category);
+            })
+            ->when($request->has('tags'), function($query) use ($request) {
+                $tags = explode(',', $request->tags);
+                $query->filterByTags($tags);
+            });
+            
+        // Pagination based on per_page and page parameter
+        $total = $query->get()->count();
+        $perPage = $request->per_page ?? $total;
+        $page = $request->page ?? 1;
+        $totalPages = ceil($total / $perPage) ?? 1;
 
-        // Filter by tags
-        if (isset($request->tags)) {
-            $tags = $request->tags;
-            $tags = explode(',', $tags);
-            foreach ($tags as $tag) {
-                $query->whereHas('tags', function ($q) use ($tag) {
-                    $q->where('tag_id', $tag);
-                });
-            }
-        }
+        $meals = $query->paginate(intval($perPage), ['*'], 'page', intval($page));
 
-        $meals = $query->get();
-
-        // Format meals data
-        $meals = $meals->map(function ($meal) use ($lang, $keyword) {
+        // Format meals data based on with parameter
+        $lang = $request->lang;
+        $with = $request->with;
+        $keywords = explode(',', $with);
+        
+        $meals = $meals->map(function ($meal) use ($lang, $keywords) {
             $mealData = [
                 'id' => $meal->id,
                 'title' => $meal->{"title:$lang"},
@@ -76,7 +99,7 @@ class MealController extends Controller
             ];
 
             // Show additional data - category
-            if (in_array('category', $keyword)) {
+            if (in_array('category', $keywords)) {
                 $mealData['category'] = $meal->categories ? [
                     'id' => $meal->categories->id,
                     'title' => $meal->categories->{"title:$lang"},
@@ -85,7 +108,7 @@ class MealController extends Controller
             }
 
             // Show additional data - tags
-            if (in_array('tags', $keyword)) {
+            if (in_array('tags', $keywords)) {
                 $mealData['tags'] = $meal->tags->map(function($tag) use ($lang) {
                     return [
                         'id' => $tag->id,
@@ -96,7 +119,7 @@ class MealController extends Controller
             }
 
             // Show additional data - ingredients
-            if (in_array('ingredients', $keyword)) {
+            if (in_array('ingredients', $keywords)) {
                 $mealData['ingredients'] = $meal->ingredients->map(function($ingredient) use ($lang) {
                     return [
                         'id' => $ingredient->id,
@@ -108,39 +131,23 @@ class MealController extends Controller
 
             return $mealData;
         });
-
-        // Get the meals and return them as a JSON response
-        $perPage = isset($request->per_page) ? $request->per_page : null;
-        $page = isset($request->page) ? $request->page : null;
-
-        // Pagination
-        if (!is_null($page) && !is_null($perPage)) {
-            // && $totalPages > $page
-            $query->paginate(intval($perPage), ['*'], 'page', intval($page));
-        }
-        $total = $meals->count();
-        $totalPages = isset($request->per_page) ? ceil($total / $perPage) : null;
-
-        $meta = [
-            'currentPage' => $page ?? 1,
-            'totalItems' => $total,
-            'itemsPerPage' => $perPage ?? $total,
-            'totalPages' => $totalPages ?? 1,
-        ];
-    
-        $links = [
-            'prev' => $page > 1 ? $request->fullUrlWithQuery(['page' => $page - 1]) : null,
-            'next' => $totalPages > $page ? $request->fullUrlWithQuery(['page' => $page + 1]) : null,
-            'self' => url()->full(),
-        ];
-    
-        $response = [
-            'meta' => $meta,
-            'data' => $meals,
-            'links' => $links,
-        ];
-
         
+        // Format the full response
+        $response = [
+            'meta' => [
+                'currentPage' => $page,
+                'totalItems' => $total,
+                'itemsPerPage' => $perPage,
+                'totalPages' => $totalPages,
+            ],
+            'data' => $meals,
+            'links' => [
+                'prev' => $page > 1 ? $request->fullUrlWithQuery(['page' => $page - 1]) : null,
+                'next' => $totalPages > $page ? $request->fullUrlWithQuery(['page' => $page + 1]) : null,
+                'self' => url()->full(),
+            ],
+        ];
+
         return response()->json($response, 200, [], JSON_PRETTY_PRINT);
     }
 }

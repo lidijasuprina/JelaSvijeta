@@ -8,5 +8,5 @@ use Illuminate\Database\Eloquent\Model;
 class Language extends Model
 {
     use HasFactory;
-    protected $fillable = ['code', 'language', 'locale'];
+    protected $fillable = ['code', 'name'];
 }

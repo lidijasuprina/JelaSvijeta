@@ -17,9 +17,6 @@ class TagFactory extends Factory
 
     public function definition()
     {
-        $locales = config('translatable.locales');
-        $title = $this->faker->sentence();
-
         return [
             'slug' => $this->faker->slug(3, false),
         ];
@@ -27,13 +24,13 @@ class TagFactory extends Factory
 
     public function configure()
     {
-        return $this->afterCreating(function (Tag $tag) {
+        return $this->afterCreating(function (Tag $model) {
             $languages = Language::all();
 
             foreach ($languages as $language) {
-                $tag->translations()->create([
+                $model->translations()->create([
                     'locale' => $language->code,
-                    'title' => $this->faker->sentence().' '.$language->code,
+                    'title' => $this->faker->words(3, true).' '.$language->code,
                 ]);
             }
         });

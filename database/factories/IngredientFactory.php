@@ -17,9 +17,6 @@ class IngredientFactory extends Factory
 
     public function definition()
     {
-        $locales = config('translatable.locales');
-        $title = $this->faker->sentence();
-
         return [
             'slug' => $this->faker->slug(3, false),
         ];
@@ -27,13 +24,13 @@ class IngredientFactory extends Factory
 
     public function configure()
     {
-        return $this->afterCreating(function (Ingredient $ingredient) {
+        return $this->afterCreating(function ($model) {
             $languages = Language::all();
 
             foreach ($languages as $language) {
-                $ingredient->translations()->create([
+                $model->translations()->create([
                     'locale' => $language->code,
-                    'title' => $this->faker->sentence().' '.$language->code,
+                    'title' => $this->faker->words(3, true).' '.$language->code,
                 ]);
             }
         });

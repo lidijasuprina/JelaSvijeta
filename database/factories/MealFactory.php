@@ -28,22 +28,22 @@ class MealFactory extends Factory
 
     public function configure()
     {
-        return $this->afterCreating(function (Meal $meal) {
+        return $this->afterCreating(function ($model) {
             $languages = Language::all();
 
             foreach ($languages as $language) {
-                $meal->translations()->create([
+                $model->translations()->create([
                     'locale' => $language->code,
-                    'title' => $this->faker->sentence().' '.$language->code,
+                    'title' => $this->faker->words(3, true).' '.$language->code,
                     'description' => $this->faker->sentence().' '.$language->code,
                 ]);
             }
 
             $tag = Tag::inRandomOrder()->first();
-            $meal->tags()->attach($tag);
+            $model->tags()->attach($tag);
 
             $ingredient = Ingredient::inRandomOrder()->first();
-            $meal->ingredients()->attach($ingredient);
+            $model->ingredients()->attach($ingredient);
         });
     }
 }
