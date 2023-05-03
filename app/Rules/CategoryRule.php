@@ -25,6 +25,6 @@ class CategoryRule implements Rule
      */
     public function message()
     {
-        return 'The :attribute must be null, not null, or an integer.';
+        return 'The :attribute must be `null`, `!null`, or an integer.';
     }
 }

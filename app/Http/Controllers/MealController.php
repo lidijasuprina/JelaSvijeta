@@ -10,7 +10,7 @@ class MealController extends Controller
     public function index(MealRequest $request)
     {
         // Determine the query type
-        if ($this->request->has('diff_time')) {
+        if ($request->has('diff_time')) {
             $query = Meal::withTrashed();
         } else {
             $query = Meal::query();
@@ -18,28 +18,28 @@ class MealController extends Controller
 
         // Filter meals based on diff_time, category and tags parameters
         $query
-            ->when($this->request->has('diff_time'), function($query) {
-                $query->filterByDiffTime($this->request->diff_time);
+            ->when($request->has('diff_time'), function($query) use ($request) {
+                $query->filterByDiffTime($request->diff_time);
             })
-            ->when($this->request->has('category'), function($query) {
-                $query->filterByCategory($this->request->category);
+            ->when($request->has('category'), function($query) use ($request) {
+                $query->filterByCategory($request->category);
             })
-            ->when($this->request->has('tags'), function($query) {
-                $tags = explode(',', $this->request->tags);
+            ->when($request->has('tags'), function($query) use ($request) {
+                $tags = explode(',', $request->tags);
                 $query->filterByTags($tags);
             });
             
         // Paginate based on per_page and page parameter
         $total = $query->get()->count();
-        $perPage = $this->request->per_page ?? $total;
-        $page = $this->request->page ?? 1;
+        $perPage = $request->per_page ?? $total;
+        $page = $request->page ?? 1;
         $totalPages = ceil($total / $perPage) ?? 1;
 
         $meals = $query->paginate(intval($perPage), ['*'], 'page', intval($page));
 
         // Format meals data based on with parameter
-        $lang = $this->request->lang;
-        $with = $this->request->with;
+        $lang = $request->lang;
+        $with = $request->with;
         $keywords = explode(',', $with);
         
         $meals = $meals->map(function ($meal) use ($lang, $keywords) {
@@ -94,8 +94,8 @@ class MealController extends Controller
             ],
             'data' => $meals,
             'links' => [
-                'prev' => $page > 1 ? $this->request->fullUrlWithQuery(['page' => $page - 1]) : null,
-                'next' => $totalPages > $page ? $this->request->fullUrlWithQuery(['page' => $page + 1]) : null,
+                'prev' => $page > 1 ? $request->fullUrlWithQuery(['page' => $page - 1]) : null,
+                'next' => $totalPages > $page ? $request->fullUrlWithQuery(['page' => $page + 1]) : null,
                 'self' => url()->full(),
             ],
         ];

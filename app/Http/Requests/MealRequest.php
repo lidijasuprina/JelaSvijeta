@@ -7,6 +7,7 @@ use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use App\Models\Language;
 use App\Rules\CategoryRule;
+use App\Rules\WithRule;
 
 class MealRequest extends FormRequest
 {
@@ -27,7 +28,7 @@ class MealRequest extends FormRequest
             'page' => 'sometimes|required|integer|min:1',
             'category' => ['sometimes', new CategoryRule],
             'tags' => 'sometimes|required|regex:/^\d+(,\d+)*$/',
-            'with' => 'sometimes|required|in:category,tags,ingredients',
+            'with' => ['sometimes', 'required', new WithRule],
             'diff_time' => 'sometimes|required|integer|min:1'
         ];
     }
