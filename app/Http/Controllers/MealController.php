@@ -7,12 +7,7 @@ use App\Http\Requests\MealRequest;
 
 class MealController extends Controller
 {
-    public function __construct(MealRequest $request)
-    {
-        $this->request = $request;
-    }
-
-    public function index()
+    public function index(MealRequest $request)
     {
         // Determine the query type
         if ($this->request->has('diff_time')) {
