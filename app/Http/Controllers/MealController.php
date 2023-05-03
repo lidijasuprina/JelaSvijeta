@@ -33,7 +33,7 @@ class MealController extends Controller
         $total = $query->get()->count();
         $perPage = $request->per_page ?? $total;
         $page = $request->page ?? 1;
-        $totalPages = ceil($total / $perPage) ?? 1;
+        $totalPages = $perPage ? ceil($total / $perPage) : 0;
 
         $meals = $query->paginate(intval($perPage), ['*'], 'page', intval($page));
 
