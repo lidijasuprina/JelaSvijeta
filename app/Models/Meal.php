@@ -54,6 +54,7 @@ class Meal extends Model implements TranslatableContract
 
     public function scopeFilterByTags($query, $tags)
     {
+        $tags = explode(',', $tags);
         foreach ($tags as $tag) {
             $query->whereHas('tags', function ($q) use ($tag) {
                 $q->where('tag_id', $tag);
@@ -71,5 +72,10 @@ class Meal extends Model implements TranslatableContract
         });
     }
 
-            
+    public function scopefilterByWith($query, $with)
+    {
+        $with = str_replace('category', 'categories', $with);
+        $with = explode(',', $with);
+        $query->with($with);
+    }       
 }

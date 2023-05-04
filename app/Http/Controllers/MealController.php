@@ -9,44 +9,42 @@ class MealController extends Controller
 {
     public function index(MealRequest $request)
     {
+        $lang = $request->lang;
         // Determine the query type
         if ($request->has('diff_time')) {
-            $query = Meal::withTrashed();
+            $query = Meal::withTrashed()->filterByDiffTime($request->diff_time);
         } else {
             $query = Meal::query();
         }
 
         // Filter meals based on diff_time, category and tags parameters
         $query
-            ->when($request->has('diff_time'), function($query) use ($request) {
-                $query->filterByDiffTime($request->diff_time);
+            ->when($request->has('with'), function($query) use ($request) {
+                $query->filterByWith($request->with);
             })
             ->when($request->has('category'), function($query) use ($request) {
                 $query->filterByCategory($request->category);
             })
             ->when($request->has('tags'), function($query) use ($request) {
-                $tags = explode(',', $request->tags);
-                $query->filterByTags($tags);
+                $query->filterByTags($request->tags);
             });
             
         // Paginate based on per_page and page parameter
-        $total = $query->get()->count();
-        $perPage = $request->per_page ?? $total;
-        $page = $request->page ?? 1;
-        $totalPages = $perPage ? ceil($total / $perPage) : 0;
-
-        $meals = $query->paginate(intval($perPage), ['*'], 'page', intval($page));
+        $meals = $query->paginate(intval($request->per_page) ?? null, ['*'], 'page', intval($request->page ?? 1));
+        $page = $meals->currentPage();
+        $total = $meals->total();
+        $perPage = $request->per_page ? $meals->perPage() : $total;
+        $totalPages = $meals->lastPage();
 
         // Format meals data based on with parameter
-        $lang = $request->lang;
         $with = $request->with;
         $keywords = explode(',', $with);
         
         $meals = $meals->map(function ($meal) use ($lang, $keywords) {
             $mealData = [
                 'id' => $meal->id,
-                'title' => $meal->{"title:$lang"},
-                'description' => $meal->{"description:$lang"},
+                'title' => $meal->translate($lang)->title,
+                'description' => $meal->translate($lang)->description,
                 'status' => $meal->status
             ];
 
@@ -54,7 +52,7 @@ class MealController extends Controller
             if (in_array('category', $keywords)) {
                 $mealData['category'] = $meal->categories ? [
                     'id' => $meal->categories->id,
-                    'title' => $meal->categories->{"title:$lang"},
+                    'title' => $meal->categories->translate($lang)->title,
                     'slug' => $meal->categories->slug,
                 ] : null;
             }
@@ -64,7 +62,7 @@ class MealController extends Controller
                 $mealData['tags'] = $meal->tags->map(function($tag) use ($lang) {
                     return [
                         'id' => $tag->id,
-                        'title' => $tag->{"title:$lang"},
+                        'title' => $tag->translate($lang)->title,
                         'slug' => $tag->slug
                     ];
                 });
