@@ -76,6 +76,10 @@ class Meal extends Model implements TranslatableContract
     {
         $with = str_replace('category', 'categories', $with);
         $with = explode(',', $with);
-        $query->with($with);
+        $translations = [];
+        foreach ($with as $key => $value) {
+            $translations[] = $value . '.translations';
+        }
+        $query->with(array_merge($with, $translations));
     }       
 }
