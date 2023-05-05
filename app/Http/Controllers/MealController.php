@@ -15,6 +15,7 @@ class MealController extends Controller
             
         // Paginate meals based on per_page and page parameter
         $meals = $query->paginate(intval($request->per_page) ?? null, ['*'], 'page', intval($request->page ?? null));
+        
         // Return formatted data
         return new MealCollection($meals->appends($request->query()));
     }
