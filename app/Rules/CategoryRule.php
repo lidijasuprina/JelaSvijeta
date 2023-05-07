@@ -15,7 +15,7 @@ class CategoryRule implements Rule
      */
     public function passes($attribute, $value)
     {
-        return is_null(strtolower($value)) || !is_null(strtolower($value)) || is_int($value);
+        return strtolower($value) == 'null' || strtolower($value) == '!null' || ctype_digit($value);
     }
 
     /**
@@ -25,6 +25,6 @@ class CategoryRule implements Rule
      */
     public function message()
     {
-        return 'The :attribute must be `null`, `!null`, or an integer.';
+        return 'The :attribute must be `null`, `!null`, or an unsigned integer.';
     }
 }
